@@ -1,5 +1,5 @@
 module Shapes(
-  Shape(..), Point, Vector, Transform, Drawing,
+  Shape(..), Point, Vector(..), Transform(..), Drawing, Style(..), Colour(..),
   point, getX, getY,
   empty, circle, square,
   identity, translate, rotate, scale, (<+>),
@@ -89,7 +89,6 @@ blue = Blue
 -- Styles (strokewidth fill strokecolour)
 
 data Style = Style Double Colour Colour
-             deriving Show
 
 style = Style
 

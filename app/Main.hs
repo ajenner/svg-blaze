@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 import Web.Scotty
+import Shapes
   
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html.Renderer.Text as R
@@ -17,48 +18,37 @@ main = scotty 3000 $ do
     html "Hello World!"
 
   get "/greet" $ do
-      html $ "Yo"
-
-  get (literal "/greet/") $ do
-      html $ "Oh, wow!"
+      html $ renderSvg (svgGenDoc ([(Identity, Square, (Style 0 Red Red)), (Translate (Vector 10 10), Circle, (Style 0 Blue Blue))]))
 
   get "/greet/:name" $ do
-      html $ renderSvg (svgDoc1 0 "50" "blue")
-
-svgDoc :: S.Svg
-svgDoc = S.docTypeSvg ! A.version "1.1" ! A.width "800" ! A.height "600" ! A.viewbox "0 0 2 4" $ do
-    S.g ! A.transform makeTransform $ do
-      S.rect ! A.width "2" ! A.height "2" ! A.fill "#008d46"
-      S.rect ! A.width "1" ! A.height "2" ! A.fill "#ffffff"
-      S.rect ! A.width "1" ! A.height "2" ! A.fill "#d2232c"
-      S.path ! A.d makePath
+      html $ renderSvg (svgDoc1 0 "50" "green")
 
 svgDoc1 :: Int -> S.AttributeValue -> S.AttributeValue -> S.Svg
 svgDoc1 0 s c = S.docTypeSvg ! A.version "1.1" ! A.viewbox "0 0 200 200" $ do
     S.g $ do
       S.rect ! A.width s ! A.height s ! A.fill c
-      S.path ! A.d makePath
 svgDoc1 1 s c = S.docTypeSvg ! A.version "1.1" ! A.viewbox "0 0 200 200" $ do
     S.g $ do
       S.circle ! A.cx s ! A.cy s ! A.r s ! A.fill c
-      S.path ! A.d makePath
 
+svgGenDoc :: Drawing -> S.Svg
+svgGenDoc d = S.docTypeSvg ! A.version "1.1" ! A.viewbox "0 0 200 200" $ do
+  svgGen d
 
---svgGen :: Drawing -> S.Svg
---svgGen [] = makePath
---svgGen d = parse d 
---svgGen (d:ds) = parse d svgGen ds
+svgGen :: Drawing -> S.Svg
+svgGen [d] = parse d 
+svgGen (d:ds) = parse d >> svgGen ds
 
---parse :: Drawing -> S.Svg
---parse (x, y, z) = makePath3
+parse :: (Transform, Shape, Style) -> S.Svg
+parse (Translate (Vector x y), Circle, _) = S.g $ do
+                                            S.circle ! A.cx (S.stringValue (show x))  ! A.cy (S.stringValue (show y))  ! A.r "10"  ! A.fill "blue" 
+parse (Translate (Vector x y), Square, _) = S.g $ do
+                                            S.rect ! A.width (S.stringValue (show x)) ! A.height (S.stringValue (show y)) ! A.fill "red"
+parse (_, Circle, _)                      = S.g $ do
+                                            S.circle ! A.cx "50" ! A.cy "50"  ! A.r "50"  ! A.fill "green" 
+parse (_, Square, _)                      = S.g $ do
+                                            S.rect ! A.width "50" ! A.height "50" ! A.fill "green"                          
 
-makePath :: S.AttributeValue
-makePath = mkPath $ do
-  l 2 3
-  m 4 5
-
-makeTransform :: S.AttributeValue
-makeTransform = rotate 50
 
 response :: Text -> Text
 response n = do R.renderHtml $ do
