@@ -1,119 +1,93 @@
 module Shapes(
-  Shape(..), Point, Vector(..), Transform(..), Drawing, Style(..), Colour(..),
-  point, getX, getY,
-  empty, circle, square,
-  identity, translate, rotate, scale, (<+>),
-  inside)  where
+  Shape(..), Transform(..), Drawing, Style(..), Colour(..),
+  empty, circle, square, ellipse,
+  getMatTransVals, transform)  where
 
+import Data.Matrix
 
 -- Utilities
 
-data Vector = Vector Double Double
-              deriving Show
-vector = Vector
+getMatTransVals :: Matrix Double -> (Double,Double,Double,Double,Double,Double)
+getMatTransVals m = (getElem 1 1 m, getElem 2 1 m, getElem 1 2 m,
+                     getElem 2 2 m, getElem 1 3 m, getElem 2 3 m)
 
-cross :: Vector -> Vector -> Double
-cross (Vector a b) (Vector a' b') = a * a' + b * b'
+transToMatrix :: Double -> Double -> Double -> Double -> Double -> Double -> Matrix Double
+transToMatrix a b c d e f = fromLists [ [a,c,e], [b,d,f], [0,0,1] ]
 
-mult :: Matrix -> Vector -> Vector
-mult (Matrix r0 r1) v = Vector (cross r0 v) (cross r1 v)
-
-invert :: Matrix -> Matrix
-invert (Matrix (Vector a b) (Vector c d)) = matrix (d / k) (-b / k) (-c / k) (a / k)
-  where k = a * d - b * c
+degToRad :: Double -> Double
+degToRad deg = deg * (pi / 180)
         
--- 2x2 square matrices are all we need.
-data Matrix = Matrix Vector Vector
-              deriving Show
-
-matrix :: Double -> Double -> Double -> Double -> Matrix
-matrix a b c d = Matrix (Vector a b) (Vector c d)
-
-getX (Vector x y) = x
-getY (Vector x y) = y
-
 -- Shapes
-
-type Point  = Vector
-
-point :: Double -> Double -> Point
-point = vector
-
 
 data Shape = Empty 
            | Circle 
-           | Square 
-             deriving Show
+           | Square
+           | Ellipse 
+             deriving (Show, Read, Eq)
 
-empty, circle, square :: Shape
+empty, circle, square, ellipse :: Shape
 
 empty = Empty
 circle = Circle
 square = Square
+ellipse = Ellipse
 
 -- Transformations
 
 data Transform = Identity
-           | Translate Vector
-           | Scale Vector
+           | Translate Double Double
+           | Scale Double Double
            | Compose Transform Transform
-           | Rotate Matrix
-             deriving Show
+           | Rotate Double
+             deriving (Show, Read)
 
-identity = Identity
-translate = Translate
-scale = Scale
-rotate angle = Rotate $ matrix (cos angle) (-sin angle) (sin angle) (cos angle)
-t0 <+> t1 = Compose t0 t1
 
-transform :: Transform -> Point -> Point
-transform Identity                   x = id x
-transform (Translate (Vector tx ty)) (Vector px py)  = Vector (px - tx) (py - ty)
-transform (Scale (Vector tx ty))     (Vector px py)  = Vector (px / tx)  (py / ty)
-transform (Rotate m)                 p = (invert m) `mult` p
-transform (Compose t1 t2)            p = transform t2 $ transform t1 p
+transform :: Transform -> Matrix Double
+transform Identity                     = (transToMatrix 1 0 0 1 0 0)
+transform (Translate tx ty)            = (transToMatrix 1 0 0 1 tx ty)
+transform (Scale sx sy)                = (transToMatrix sx 0 0 sy 0 0)
+transform (Rotate an)                  = (transToMatrix (cos a) (sin a) (-sin a) (cos a) 0 0)
+  where a = degToRad an
+transform (Compose t1 t2)              =  multStd (transform t1) (transform t2)
 
 -- Colours
 
 data Colour = Red
             | Green
             | Blue
-              deriving Show
+            | Orange
+            | Purple
+            | Yellow
+            | Black
+            | White
+            | Cyan
+            | Greenyellow
+            | Orangered
+              deriving (Show, Read)
 
-red, green, blue :: Colour
+red, green, blue, orange, purple, yellow, black, white, cyan, greenyellow, orangered:: Colour
 
 red = Red
 green = Green
 blue = Blue
+orange = Orange
+purple = Purple
+yellow = Yellow
+black = Black
+white = White
+cyan = Cyan
+greenyellow = Greenyellow
+orangered = Orangered
 
 -- Styles (strokewidth fill strokecolour)
 
-data Style = Style Double Colour Colour
+type StrokeWidth = Double
+type StrokeColour = Colour
+type FillColour = Colour
 
-style = Style
+type Style = (StrokeWidth,StrokeColour,FillColour)
 
 -- Drawings
 
 type Drawing = [(Transform,Shape,Style)]
 
--- interpretation function for drawings
-
-inside :: Point -> Drawing -> Bool
-inside p d = or $ map (inside1 p) d
-
-inside1 :: Point -> (Transform, Shape, Style) -> Bool
-inside1 p (t,s,_) = insides (transform t p) s
-
-insides :: Point -> Shape -> Bool
-p `insides` Empty = False
-p `insides` Circle = distance p <= 1
-p `insides` Square = maxnorm  p <= 1
-
-
-distance :: Point -> Double
-distance (Vector x y ) = sqrt ( x**2 + y**2 )
-
-maxnorm :: Point -> Double
-maxnorm (Vector x y ) = max (abs x) (abs y)
-
-testShape = (scale (point 10 10), circle)

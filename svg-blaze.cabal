@@ -22,10 +22,8 @@ executable svg-blaze-it
                      , blaze-svg
                      , scotty
                      , text
+                     , matrix
   other-modules:       Shapes
-                     , Render
-                     , Ansi
-                     , Blaze
 
   default-language:    Haskell2010
 

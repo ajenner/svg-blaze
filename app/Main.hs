@@ -11,55 +11,43 @@ import qualified Text.Blaze.Svg11.Attributes as A
 import Text.Blaze.Svg.Renderer.Text (renderSvg)
 
 
-import Data.Text.Lazy
+import qualified Data.Text.Lazy as L
 
 main = scotty 3000 $ do
-  get "/" $ do
-    html "Hello World!"
+-- Load the index by default
+  get "/" $ file "index.html"
+-- Extract the post parameter and convert it into an SVG to render
+  get "/:postParam" $ do
+    parseParam <- param "postParam" 
+    let d = read parseParam -- read the param as a drawing
+    html $ renderSvg (svgGenDoc d)
 
-  get "/greet" $ do
-      html $ renderSvg (svgGenDoc ([(Identity, Square, (Style 0 Red Red)), (Translate (Vector 10 10), Circle, (Style 0 Blue Blue))]))
-
-  get "/greet/:name" $ do
-      html $ renderSvg (svgDoc1 0 "50" "green")
-
-svgDoc1 :: Int -> S.AttributeValue -> S.AttributeValue -> S.Svg
-svgDoc1 0 s c = S.docTypeSvg ! A.version "1.1" ! A.viewbox "0 0 200 200" $ do
-    S.g $ do
-      S.rect ! A.width s ! A.height s ! A.fill c
-svgDoc1 1 s c = S.docTypeSvg ! A.version "1.1" ! A.viewbox "0 0 200 200" $ do
-    S.g $ do
-      S.circle ! A.cx s ! A.cy s ! A.r s ! A.fill c
-
+-- Generate the default SVG doc
 svgGenDoc :: Drawing -> S.Svg
-svgGenDoc d = S.docTypeSvg ! A.version "1.1" ! A.viewbox "0 0 200 200" $ do
+svgGenDoc d = S.docTypeSvg ! A.version "1.1" ! A.viewbox "0 0 100 100" $ do
   svgGen d
 
+-- Recursively parse the input drawings into SVGs, and build one big SVG at the end to put into the doc
 svgGen :: Drawing -> S.Svg
 svgGen [d] = parse d 
 svgGen (d:ds) = parse d >> svgGen ds
 
+-- Parse the drawings into usuable chunks, apply transforms
 parse :: (Transform, Shape, Style) -> S.Svg
-parse (Translate (Vector x y), Circle, _) = S.g $ do
-                                            S.circle ! A.cx (S.stringValue (show x))  ! A.cy (S.stringValue (show y))  ! A.r "10"  ! A.fill "blue" 
-parse (Translate (Vector x y), Square, _) = S.g $ do
-                                            S.rect ! A.width (S.stringValue (show x)) ! A.height (S.stringValue (show y)) ! A.fill "red"
-parse (_, Circle, _)                      = S.g $ do
-                                            S.circle ! A.cx "50" ! A.cy "50"  ! A.r "50"  ! A.fill "green" 
-parse (_, Square, _)                      = S.g $ do
-                                            S.rect ! A.width "50" ! A.height "50" ! A.fill "green"                          
+parse (ts, s, (sw,sc,fc)) = shape ! strokeWidth ! stroke ! fill ! trans ! H.customAttribute "vector-effect" "non-scaling-stroke"
+  where shape = shapeToSvg s
+        strokeWidth = A.strokeWidth (S.toValue sw)
+        stroke = A.stroke $ S.stringValue (show sc)
+        fill = A.fill $ S.stringValue (show fc)
+        trans = A.transform (S.matrix a b c d e f)
+        (a,b,c,d,e,f) = getMatTransVals m
+        m = transform ts
 
+-- turn a shape into an SVG Shape
+shapeToSvg :: Shape -> S.Svg
+shapeToSvg shape
+  | shape == empty = S.rect
+  | shape == circle = S.circle ! A.cx "1" ! A.cy "1" ! A.r "5" 
+  | shape == square = S.rect ! A.width "10" ! A.height "10"
+  | shape == ellipse = S.ellipse ! A.cx "1" ! A.cy "1" ! A.rx "3" ! A.ry "2"
 
-response :: Text -> Text
-response n = do R.renderHtml $ do
-                  H.h1 ( "Hello " >> H.toHtml n)
-
-longresponse :: Text -> Text
-longresponse n = do
-  R.renderHtml $ do
-    H.head $ H.title "Welcome page"
-    H.body $ do
-      H.h1 "Welcome!"
-      H.p ("Welcome to my Scotty app " >> H.toHtml n)
-      
-    
